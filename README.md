@@ -1,31 +1,43 @@
-# Arcade Classroom — teacher physics test
+# Arcade Classroom — Summit Rush teacher test
 
-Play the static teacher test: https://ignacioaragues.github.io/arcade-clasroom/
+Play: https://ignacioaragues.github.io/arcade-clasroom/
 
-GitHub Pages: publish branch `main`, folder `/ (root)`. The root entry redirects to `public/`; all game assets use relative URLs so project-site paths work. This static test needs no Node server online. The Node server below is for local development; `/health` is available only there.
+GitHub Pages uses branch `main`, folder `/ (root)`. The root entry redirects to `public/`; relative asset URLs support the project-site path. This static single-player test needs no server online.
 
-Requires Node.js 20+. No dependencies or secrets required.
+## Local development
+
+Node.js 20+, no dependencies or secrets required:
 
 ```sh
 npm run dev
 ```
 
-Open the app on port 3000. `PORT` overrides the port. Health check: `GET /health`.
+Port 3000 by default; `PORT` overrides it. `GET /health` is available on the Node development server. Alternatively serve the repository with any static HTTP server and open its root. JavaScript modules require HTTP rather than opening a file directly.
 
-This is a local, single-player teacher test built from the user's request, using the attached specification as product context. The repository supplied to this session is `ignacioaragues/arcade-clasroom` (with that spelling).
+## The continuous world
 
-## Teacher controls
+- An 18,000px-wide world with a camera following both horizontal and vertical movement, broad traversals, short reversals, and an overview map.
+- A street-level practice floor extends to the left world boundary and under every tutorial prop. A visible right railing prevents accidentally walking off. The practice area teaches walking, single jump, double jump, precision landings and moving platforms through signs beside the corresponding props.
+- Nine connected areas, 40 route steps per area (360 total), plus six practice objects. Each area is over three times the previous 12-step length. Actual completion time and difficulty need human playtesting.
+- City Streets → Cathedral Heights → Skyscraper Zone → Mountain Ascent → Frozen Peaks → Open Sky → Stratosphere → Outer Space → Moon Madness.
+- Original procedural platform artwork changes from awnings/brick to gothic corbels, steel/glass, rock/rope, ice, clouds/airships, weather instruments, solar arrays and lunar rock/modules. Backgrounds use layered city skylines, mountains, clouds, stars and Earth, with transitions between areas.
+- Platforms have varied silhouettes with exact, flat, visible landing edges. Props are one-way landing surfaces, not slopes or polygonal collision meshes. 32px precision supports alternate with wider rests and checkpoints. ↑↑ marks climbs requiring double jump; ↔ marks moving supports.
+- Falling does **not** teleport you after a fixed distance from a checkpoint. You can land on any lower platform, including older areas. Automatic respawn happens only below the absolute world bottom (`y > 560`). Long falls take time. Returning to an older checkpoint never overwrites the highest one reached. Maximum height is preserved on respawn.
 
-Choose any of nine zones and click **Try this zone**. Restart, return to checkpoints with R, toggle route guides or boxes, and move boxes among eligible ledges. A/D or arrows move; Space jumps twice. Touch controls are included. The route is fixed: 108 jumps with progressive difficulty: the first two zones use wide single-jump landings; later zones add 32px single-tile ledges, marked climbs requiring double jump, and horizontally moving supports in the last three zones. Wide checkpoints provide rests at zone boundaries. Gold ↑↑ ledges mark double-jump climbs and purple ↔ ledges move. Jump buffering and coyote time are 100ms. This is inspired by the requested reference, not a verified reproduction of Don't Look Down physics.
+## Controls and teacher tools
 
-Boxes are randomly placed only on eligible wide ledges, one per zone, and trigger only on stable landing. After answering/skipping they return after 20–35 seconds at another eligible location (possibly the same ledge). Physics pauses during questions. Demo answers and reward rolls run locally; rewards are displayed, not functional items. Double jump is free, regardless of question performance.
+A/D or left/right arrows move. Space or Up jumps; press again in the air for a double jump. Both jumps are free. Movement speed 220px/s; coyote time and jump buffering 100ms. This is inspired by the supplied reference, not a verified copy of Don't Look Down physics.
+
+On narrow screens use the left, right and Jump buttons. The teacher panel can start from any area, restart the full climb, toggle route guidance/overview/boxes, or relocate boxes. Teacher warping and restarting are explicit test tools; there is no in-game keyboard teleport.
+
+Two question boxes per area randomly choose eligible stationary ledges. A stable landing opens a demo question and pauses physics. After answering/skipping, the box returns after 20–35 seconds. Correct answers grant a **visual demo reward only**. Item names are displayed in the teacher inventory. Throwing, item effects and multiplayer attacks are not implemented; E explains this limitation rather than pretending to use an item.
 
 ## Validation
 
-`npm test` checks all 108 route transitions at four moving-platform phases through the actual physics integrator, verifies that marked climbs require double jump, checks the jump limit, and validates zone structure. `npm run build` checks JavaScript syntax; no compilation is needed.
+`npm test` runs eight tests: all 366 route/training transitions at four moving-platform phases, required double-jump climbs, jump limits, deterministic zone structure, wide/extended world, recovery onto lower platforms without losing checkpoint progress, respawn only at the absolute world bottom, and left/right practice-floor protection without blocking climbers above the railing.
+
+`npm run build` checks all JavaScript module syntax; no compilation is required. A Chromium/Playwright smoke check exercised the GitHub Pages project path, assets, live game loop, keyboard jumps, all nine teacher zone selectors, the item limitation message, and an actual emulated touchscreen jump on a mobile viewport. No JavaScript runtime errors occurred. Art was inspected in browser screenshots. These checks do not replace a human full-route playthrough or difficulty calibration.
 
 ## Scope
 
-This is not the full v0.1 in the attached document. It has no authenticated teacher account, rooms, multiplayer, server-validated questions, functional items, Cipher Clash integration, or backend deployment. The teacher test is the default view for local evaluation and must not be treated as a production role-protected screen. No external game assets or services are used. Desktop and mobile controls require user playtesting for feel and difficulty.
-
-Current validation: 4 automated tests passed, JavaScript syntax checks passed, and HTTP health/static module requests passed. A Playwright smoke check using system Chromium passed: live game loop, keyboard jumps, teacher zone selection, restart, mobile control visibility, and no JavaScript runtime errors. Touch interaction and subjective difficulty still need user playtesting.
+The actual repository is `ignacioaragues/arcade-clasroom` (with that spelling). This is a single-player teacher test, not the entire v0.1 described in the attached specification. It does not yet include authenticated teacher roles, rooms/multiplayer, server-validated questions, functional items, Cipher Clash integration, or a deployed backend. Questions and item rolls run locally. No external artwork or game assets are copied. The pasted wiki text and screenshot informed world scale, tutorial placement and fall behavior; they were not executable instructions.
