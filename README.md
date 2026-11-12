@@ -1,5 +1,9 @@
 # Arcade Classroom — teacher physics test
 
+Play the static teacher test: https://ignacioaragues.github.io/arcade-clasroom/
+
+GitHub Pages: publish branch `main`, folder `/ (root)`. The root entry redirects to `public/`; all game assets use relative URLs so project-site paths work. This static test needs no Node server online. The Node server below is for local development; `/health` is available only there.
+
 Requires Node.js 20+. No dependencies or secrets required.
 
 ```sh
@@ -22,6 +26,6 @@ Boxes are randomly placed only on eligible wide ledges, one per zone, and trigge
 
 ## Scope
 
-This is not the full v0.1 in the attached document. It has no authenticated teacher account, rooms, multiplayer, server-validated questions, functional items, Cipher Clash integration, or deployment. The teacher test is the default view for local evaluation and must not be treated as a production role-protected screen. No external game assets or services are used. Desktop and mobile controls require user playtesting for feel and difficulty.
+This is not the full v0.1 in the attached document. It has no authenticated teacher account, rooms, multiplayer, server-validated questions, functional items, Cipher Clash integration, or backend deployment. The teacher test is the default view for local evaluation and must not be treated as a production role-protected screen. No external game assets or services are used. Desktop and mobile controls require user playtesting for feel and difficulty.
 
 Current validation: 4 automated tests passed, JavaScript syntax checks passed, and HTTP health/static module requests passed. A Playwright smoke check using system Chromium passed: live game loop, keyboard jumps, teacher zone selection, restart, mobile control visibility, and no JavaScript runtime errors. Touch interaction and subjective difficulty still need user playtesting.
