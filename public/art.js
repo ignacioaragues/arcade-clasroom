@@ -1,3 +1,5 @@
+import {WORLD} from './physics.js';
+import {backgroundState,sceneryCells} from './scenery.js';
 // Original procedural art. Collision surfaces are the flat, visible top edges.
 const themes = [
  ['#5199b4','#bde2d9','#db9473','#795346'],
@@ -12,41 +14,81 @@ const themes = [
 ];
 function polygon(ctx,points,color) {ctx.fillStyle=color;ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();}
 function ellipse(ctx,x,y,rx,ry,color){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();}
-function scene(ctx,zone,camera,w,h,alpha=1){
- ctx.save();ctx.globalAlpha=alpha;
- const [top,bottom]=themes[zone],gradient=ctx.createLinearGradient(0,0,0,h);gradient.addColorStop(0,top);gradient.addColorStop(1,bottom);ctx.fillStyle=gradient;ctx.fillRect(0,0,w,h);
- if(zone<3){
-  ellipse(ctx,w-140-camera.x*.015,100,40,40,'#f8e6b680');
-  for(let layer=0;layer<2;layer++)for(let i=-1;i<18;i++){
-   const width=80+layer*30, x=i*width-(camera.x*(.12+layer*.13)%width),height=70+(Math.abs(i*71+zone*83)%170);
-   const y=h-height+layer*40;
-   ctx.fillStyle=layer?'#1a364d44':'#29455e33';ctx.fillRect(x,y,width-7,height);
-   if(zone===1)polygon(ctx,[[x,y],[x+width/2,y-65],[x+width-7,y]],'#4a496844');
-   for(let yy=y+20;yy<h;yy+=28)for(let xx=x+10;xx<x+width-10;xx+=20){ctx.fillStyle='#e4e9d72a';ctx.fillRect(xx,yy,6,10);}
+function scene(ctx,zone,camera,w,h){
+ const [top,bottom]=themes[zone],gradient=ctx.createLinearGradient(0,0,0,h);
+ gradient.addColorStop(0,top);gradient.addColorStop(1,bottom);ctx.fillStyle=gradient;ctx.fillRect(0,0,w,h);
+ if(zone<7){
+  ellipse(ctx,w*.74,100,38,38,zone<3?'#fff0bc':'#eff9ff');
+  // Absolute world IDs keep each mountain/cloud/building stable as the camera crosses a tile.
+  for(const layer of [0,1])for(const c of sceneryCells(camera.x,.035+layer*.035,340,w)){
+   const peak=170+hash(c.id+31)*120,base=h-45+layer*60;
+   polygon(ctx,[[c.x-40,base],[c.x+180,peak],[c.x+390,base]],layer?'#6d939a66':'#75a3aa55');
+   if(zone>=3&&zone<=4)polygon(ctx,[[c.x+135,peak+65],[c.x+180,peak],[c.x+226,peak+67],[c.x+183,peak+44]],'#f1f9f4bb');
   }
- }else if(zone<6){
-  for(let layer=0;layer<2;layer++)for(let i=-2;i<8;i++){
-   const x=i*260-(camera.x*(.08+layer*.1)%260),peak=130+((i*i+layer*7)%4)*40;
-   polygon(ctx,[[x,h],[x+160,peak+layer*170],[x+360,h]],layer?'#4b73885a':'#6f91a851');
-   if(zone===4)polygon(ctx,[[x+115,peak+layer*170+80],[x+160,peak+layer*170],[x+207,peak+layer*170+82],[x+163,peak+layer*170+58]],'#effbff99');
+  for(const c of sceneryCells(camera.x,.105,230,w)){
+   const y=65+hash(c.id+7)*145;ellipse(ctx,c.x,y,43,11,'#fff8');ellipse(ctx,c.x+20,y-9,28,16,'#fff8');
+  }
+ }
+ if(zone<3){
+  // Distant coastal city: water, stone skyline and a closer layer of lived-in buildings.
+  ctx.fillStyle='#499fae44';ctx.fillRect(0,h*.72,w,h*.28);
+  for(const c of sceneryCells(camera.x,.13,86,w))building(ctx,c.x,h*.80,77,65+hash(c.id)*120,zone,c.id,true);
+  for(const c of sceneryCells(camera.x,.25,136,w))building(ctx,c.x,h+35,124,140+hash(c.id+9)*170,zone,c.id,false);
+ }else if(zone===3||zone===4){
+  for(const c of sceneryCells(camera.x,.19,240,w)){
+   const peak=250+hash(c.id)*140;
+   polygon(ctx,[[c.x-30,h],[c.x+110,peak],[c.x+285,h]],zone===4?'#7ca4bc':'#69866d');
+   if(zone===4)polygon(ctx,[[c.x+70,peak+70],[c.x+110,peak],[c.x+151,peak+72],[c.x+110,peak+50]],'#edfaff');
+   else for(let n=0;n<3;n++)pine(ctx,c.x+30+n*42,h-10-n*8,45+n*8);
+  }
+ }else if(zone===5){
+  for(const c of sceneryCells(camera.x,.14,400,w)){
+   const y=h*.68+hash(c.id)*100;ellipse(ctx,c.x,y,100,23,'#e0f4f1');ellipse(ctx,c.x+42,y-15,65,28,'#f6fcf4');
+   ellipse(ctx,c.x+160,150,44,16,'#ebc494');ctx.fillStyle='#765c55';ctx.fillRect(c.x+145,172,26,9);
   }
  }
  if(zone>=6){
-  for(let i=0;i<80;i++){const x=((i*137-camera.x*.04)%w+w)%w,y=((i*83-camera.y*.03)%h+h)%h;ctx.fillStyle=i%3?'#e6eeff70':'#fff9cf';ctx.fillRect(x,y,i%3?2:3,2);}
-  if(zone>=7){ellipse(ctx,w-180-camera.x*.006,140,67,67,'#5d9ac6');ellipse(ctx,w-194-camera.x*.006,130,34,49,'#89b7a5');ellipse(ctx,w-180-camera.x*.006,140,73,73,'#80b8e322');}
+  for(const c of sceneryCells(camera.x,.035,180,w))for(let n=0;n<7;n++){
+   const x=c.x+hash(c.id*11+n)*180,y=hash(c.id*19+n+27)*h;
+   ctx.fillStyle=n%3?'#c9daee':'#fff2c7';ctx.fillRect(x,y,n%3?1:2,2);
+  }
+  if(zone===6)for(const c of sceneryCells(camera.x,.11,420,w)){
+   const y=170+hash(c.id)*180;ellipse(ctx,c.x,y,24,32,'#b6bdc5');ctx.strokeStyle='#d2c7b0';ctx.beginPath();ctx.moveTo(c.x-12,y+22);ctx.lineTo(c.x,y+58);ctx.lineTo(c.x+12,y+22);ctx.stroke();ctx.fillStyle='#98866c';ctx.fillRect(c.x-6,y+56,12,10);
+  }
+  if(zone>=7){ellipse(ctx,w*.73,160,70,70,'#66a6cb');ellipse(ctx,w*.71,146,30,45,'#94b9a1');ellipse(ctx,w*.73,160,76,76,'#8bc4dc22');}
+  if(zone===8)for(const c of sceneryCells(camera.x,.16,280,w)){
+   polygon(ctx,[[c.x-20,h],[c.x+80,h-90],[c.x+160,h-55],[c.x+300,h]],'#8b879e');ellipse(ctx,c.x+90,h-26,36,10,'#66647e');
+  }
  }
- if(zone<7)for(let i=-1;i<7;i++){
-  const x=i*220-(camera.x*.18%220),y=80+((i*i*29)%230);
-  ellipse(ctx,x,y,48,12,'#fff8');ellipse(ctx,x+20,y-8,30,15,'#fff8');
- }
- if(zone===8){polygon(ctx,[[0,h],[w*.18,h-80],[w*.4,h-35],[w*.64,h-110],[w,h-40],[w,h]],'#9895a333');}
- ctx.restore();
 }
+function hash(n){const v=Math.sin(n*127.1+311.7)*43758.5453;return v-Math.floor(v);}
+function pine(ctx,x,y,height){ctx.fillStyle='#586d57';ctx.fillRect(x-3,y-height,6,height);polygon(ctx,[[x,y-height-20],[x-20,y-12],[x+20,y-12]],'#42675f');}
+function building(ctx,x,base,w,height,zone,id,far){
+ const y=base-height;
+ ctx.fillStyle=far?'#a4c7c2':zone===0?'#d29d7d':zone===1?'#a99caa':'#5791aa';ctx.fillRect(x,y,w,height);
+ ctx.fillStyle=far?'#7eabaa':zone===0?'#ae7764':'#68778e';ctx.fillRect(x-3,y-5,w+6,6);
+ if(zone===1||id%5===0){polygon(ctx,[[x-4,y-5],[x+w/2,y-40],[x+w+4,y-5]],far?'#79a8a6':'#9d776d');}
+ for(let yy=y+16;yy<base-12;yy+=29)for(let xx=x+12;xx<x+w-12;xx+=24){
+  ctx.fillStyle=far?'#cee0cd':'#396d72';ctx.fillRect(xx,yy,10,16);ctx.fillStyle=far?'#bed6c8':'#f1d3a0';ctx.fillRect(xx-2,yy+16,14,3);
+  if(!far){ctx.fillStyle='#85a093';ctx.fillRect(xx-4,yy+1,3,14);ctx.fillRect(xx+11,yy+1,3,14);}
+ }
+ if(!far&&zone===0){
+  ctx.fillStyle='#bb756a';ctx.fillRect(x+5,y+height*.55,w-10,14);
+  for(let i=5;i<w-5;i+=18){ctx.fillStyle='#f4d9b1';ctx.fillRect(x+i,y+height*.55,8,14);}
+  if(id%3===0){ctx.fillStyle='#b38d71';ctx.fillRect(x+w*.6,y-25,12,20);ctx.fillStyle='#f4dcb5';ctx.fillRect(x+w*.6-3,y-28,18,4);}
+ }
+}
+let blendCanvas=null;
 export function drawBackground(ctx,platforms,zone,camera,w,h){
- scene(ctx,Math.max(0,zone-1),camera,w,h);
- const first=platforms.find(q=>q.zone===zone&&!q.tutorial);
- const blend=zone===0?1:Math.max(0,Math.min(1,(first.y-(camera.y+h*.62)+180)/360));
- scene(ctx,zone,camera,w,h,blend);
+ const state=backgroundState(platforms,camera.x+w*.4);
+ scene(ctx,state.from,camera,w,h);
+ if(state.mix>0){
+  if(!blendCanvas){blendCanvas=document.createElement('canvas');}
+  if(blendCanvas.width!==w||blendCanvas.height!==h){blendCanvas.width=w;blendCanvas.height=h;}
+  scene(blendCanvas.getContext('2d'),state.to,camera,w,h);
+  // Composite complete opaque scenes, not every individual translucent primitive.
+  ctx.save();ctx.globalAlpha=state.mix;ctx.drawImage(blendCanvas,0,0);ctx.restore();
+ }
 }
 export function drawPlatform(ctx,q){
  const [,,light,dark]=themes[q.zone],{x,y,w}=q;
@@ -61,6 +103,8 @@ export function drawPlatform(ctx,q){
  case 0: // Brick, awnings, crates, and rooftop water tanks.
   if(kind===1){polygon(ctx,[[x,y],[x+w,y],[x+w+8,y+20],[x-8,y+20]],'#d27469');for(let i=0;i<w;i+=20){ctx.fillStyle='#f5d7ad';ctx.fillRect(x+i,y,9,20);}ctx.fillStyle=dark;ctx.fillRect(x+5,y+20,5,23);ctx.fillRect(x+w-10,y+20,5,23);}
   else{ctx.fillRect(x,y,w,kind===2?48:28);ctx.strokeStyle='#e4b39066';for(let j=10;j<35;j+=12){ctx.beginPath();ctx.moveTo(x,y+j);ctx.lineTo(x+w,y+j);ctx.stroke();}for(let i=12;i<w;i+=24){ctx.fillStyle='#e4b39066';ctx.fillRect(x+i,y+2,2,24);}if(kind===3){ctx.fillStyle='#526371';ctx.fillRect(x+w*.25,y+6,w*.5,35);}}
+  if(kind!==1&&w>=48){ctx.fillStyle='#f0d9b0';ctx.fillRect(x+6,y+9,Math.min(16,w-12),18);ctx.fillStyle='#397877';ctx.fillRect(x+9,y+12,Math.min(10,w-18),12);ctx.fillStyle='#719d73';ctx.fillRect(x+2,y+28,25,5);}
+  if(kind===3&&w>=48){ctx.fillStyle='#566773';ctx.fillRect(x+w/2-14,y+9,28,34);ellipse(ctx,x+w/2,y+12,14,6,'#88918a');ctx.fillStyle='#c2b58d';ctx.fillRect(x+w/2-11,y+44,3,10);ctx.fillRect(x+w/2+8,y+44,3,10);}
   break;
  case 1: // Gothic corbels, arches and suspended bells.
   ctx.fillRect(x,y,w,12);polygon(ctx,[[x+4,y+12],[x+w-4,y+12],[x+w*.65,y+45],[x+w*.35,y+45]],dark);
@@ -88,11 +132,13 @@ export function drawPlatform(ctx,q){
   else{ctx.fillStyle='#b9bcc1';ctx.fillRect(x,y,w,23);ctx.fillStyle='#5f7d9e';ctx.fillRect(x+7,y+8,Math.max(6,w-14),8);ctx.fillStyle='#b0a883';ctx.fillRect(x+3,y+23,4,17);ctx.fillRect(x+w-7,y+23,4,17);}break;
  }
  // Readable, exact collision edge across every prop silhouette.
- ctx.fillStyle=q.checkpoint?'#74edbe':q.moving?'#d2b7ff':light;ctx.fillRect(x,y,w,4);
+ ctx.fillStyle=q.expert?'#ffd28b':q.checkpoint?'#74edbe':q.moving?'#d2b7ff':light;ctx.fillRect(x,y,w,4);
  if(q.checkpoint){ctx.fillStyle='#d8e9df';ctx.fillRect(x+w-18,y-37,2,37);polygon(ctx,[[x+w-16,y-37],[x+w+6,y-30],[x+w-16,y-24]],'#74edbe');}
  ctx.font='bold 10px system-ui';ctx.fillStyle='#f8e1a3';
+ if(q.expert){ctx.fillStyle='#ffcf86';ctx.fillText('◆',x,y-10);}
  if(q.double)ctx.fillText('↑↑',x+w/2-7,y-12);
  if(q.moving){ctx.fillStyle='#e0ceff';ctx.fillText('↔',x+w/2-7,y-12);}
+ if(q.expert&&q.kind===0){ctx.fillStyle='#ffcf86';ctx.fillText('EXPERT · PRECISION',x-30,y-30);}
  if(q.checkpoint){ctx.fillStyle='#c4ffdc';ctx.fillText('CHECKPOINT',x,y-10);}
 }
 export function drawTutorial(ctx){
@@ -105,7 +151,7 @@ export function drawTutorial(ctx){
 }
 export function drawOverview(ctx,platforms,p,camera,w,h){
  const bx=w-220,by=18,bw=202,bh=90, minY=platforms.at(-1).y-200;
- const maxX=18000,scaleX=bw/maxX,scaleY=bh/(200-minY);
+ const maxX=WORLD.width,scaleX=bw/maxX,scaleY=bh/(200-minY);
  const px=x=>bx+x*scaleX, py=y=>by+(y-minY)*scaleY;
  ctx.fillStyle='#0a1725d9';ctx.fillRect(bx-8,by-8,bw+16,bh+30);
  ctx.strokeStyle='#a0c2ce55';ctx.lineWidth=1;ctx.beginPath();platforms.forEach((q,i)=>i?ctx.lineTo(px(q.x),py(q.y)):ctx.moveTo(px(q.x),py(q.y)));ctx.stroke();

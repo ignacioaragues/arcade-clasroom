@@ -1,6 +1,7 @@
-import {map,player,step,ZONES,movePlatforms,zoneAt,zoneStart,WORLD,fellOut,respawn} from './physics.js';
+import {map,player,step,ZONES,movePlatforms,zoneAt,zoneStart,WORLD,fellOut,respawn,expertRoutes} from './physics.js';
 import {drawBackground,drawPlatform,drawTutorial,drawOverview} from './art.js';
-const $=id=>document.getElementById(id), canvas=$('game'),ctx=canvas.getContext('2d'),platforms=map();
+const $=id=>document.getElementById(id), canvas=$('game'),ctx=canvas.getContext('2d'),mainRoute=map();
+const platforms=[...mainRoute,...expertRoutes(mainRoute).flatMap(r=>r.supports)].sort((a,b)=>b.y-a.y);
 const W=canvas.width,H=canvas.height;
 let p=player(platforms[0]), camera={x:0,y:-400},last=performance.now(),jump=false,won=false,activeBox=null,item='',clock=0,falls=0;
 const keys=new Set();
@@ -22,6 +23,7 @@ function restart(q=platforms[0]){
 }
 ZONES.forEach((z,i)=>$('stage').add(new Option(`${i+1}. ${z}`,i)));
 $('warp').onclick=()=>{const z=Number($('stage').value);restart(zoneStart(platforms,z));message('Test zone: '+ZONES[z]);canvas.focus();};
+$('expert').onclick=()=>{const branches=expertRoutes(mainRoute),branch=branches.find(b=>b.from.zone===Number($('stage').value))||branches[0];$('stage').value=String(branch.from.zone);restart(branch.from);message('Expert route: '+ZONES[branch.from.zone]+'. Follow the gold ◆ footholds; the lower main route can catch a missed landing.');canvas.focus();};
 $('reset').onclick=()=>{restart();message('Practice on the ground, then follow the props into the climb.');canvas.focus();};
 $('respawn').onclick=()=>{if(activeBox)return;boxes.forEach(b=>{relocate(b);b.ready=clock;});message('Boxes moved to safe, stationary ledges.');canvas.focus();};
 function consumeBox(){
@@ -89,7 +91,7 @@ function draw(){
  const visible=platforms.filter(q=>q.y>camera.y-80&&q.y<camera.y+H+80&&q.x+q.w>camera.x-80&&q.x<camera.x+W+80);
  if($('guide').checked){
   ctx.strokeStyle='#c0e8e155';ctx.setLineDash([4,8]);ctx.beginPath();
-  platforms.forEach((q,i)=>i?ctx.lineTo(q.x+q.w/2,q.y-5):ctx.moveTo(q.x+q.w/2,q.y-5));ctx.stroke();ctx.setLineDash([]);
+  mainRoute.forEach((q,i)=>i?ctx.lineTo(q.x+q.w/2,q.y-5):ctx.moveTo(q.x+q.w/2,q.y-5));ctx.stroke();ctx.setLineDash([]);
  }
  visible.forEach(q=>drawPlatform(ctx,q));
  if(camera.x<1400&&camera.y>-1100)drawTutorial(ctx);

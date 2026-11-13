@@ -1,6 +1,6 @@
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
-const files={'/':'index.html','/game.js':'game.js','/physics.js':'physics.js','/art.js':'art.js','/style.css':'style.css'};
+const files={'/':'index.html','/game.js':'game.js','/physics.js':'physics.js','/art.js':'art.js','/scenery.js':'scenery.js','/style.css':'style.css'};
 http.createServer(async(req,res)=>{
  if(req.url==='/health'){res.writeHead(200,{'Content-Type':'application/json'});return res.end('{"status":"ok","mode":"teacher-test"}');}
  const file=files[req.url?.split('?')[0]];
