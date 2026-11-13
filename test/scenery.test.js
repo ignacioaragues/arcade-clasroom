@@ -2,11 +2,17 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {map,expertRoutes,player,step,movePlatforms,WORLD} from '../public/physics.js';
 import {backgroundState,sceneryCells} from '../public/scenery.js';
-test('main course always climbs right with five distinct motifs per zone',()=>{
+test('course advances right overall with local switchbacks, long roofs and five motifs per zone',()=>{
  const route=map().filter(q=>!q.safeFloor);
- for(let i=1;i<route.length;i++){assert.ok(route[i].baseX+route[i].w/2>route[i-1].baseX+route[i-1].w/2);assert.ok(route[i].y<route[i-1].y);}
- for(let z=0;z<9;z++)assert.equal(new Set(route.filter(q=>q.zone===z&&!q.tutorial).map(q=>q.pattern)).size,5);
- assert.ok(route.at(-1).x<WORLD.width-500);assert.ok(route.at(-1).x/-route.at(-1).y>2.5);
+ assert.ok(route.filter((q,i)=>i&&q.baseX<route[i-1].baseX).length>=50);
+ assert.ok(route.filter(q=>q.w>=240).length>=50);
+ assert.ok(route.some((q,i)=>i&&q.y===route[i-1].y&&q.w>=240));
+ for(let z=0;z<9;z++){
+  const area=route.filter(q=>q.zone===z&&!q.tutorial);
+  assert.equal(new Set(area.map(q=>q.pattern)).size,5);
+  assert.ok(area.at(-1).x>area[0].x+2500);
+ }
+ assert.ok(route.at(-1).x<WORLD.width-500);
 });
 test('scenery retains world identity and subpixel motion across former modulo seams',()=>{
  for(const speed of [.035,.07,.105,.13,.25]){
@@ -28,6 +34,7 @@ test('optional ten-pixel expert routes have reachable transitions and do not rep
  assert.equal(branches.length,3);
  for(const branch of branches){
   assert.ok(branch.supports.every(q=>q.w===10&&q.expert));
+  for(const s of branch.supports)assert.ok(!main.some(q=>q.y>s.y&&q.x<s.x+s.w&&q.x+q.w>s.x),'expert fall column must be clear');
   const path=[branch.from,...branch.supports,branch.to];
   for(let i=0;i<path.length-1;i++){
    let success=false;
@@ -43,4 +50,15 @@ test('optional ten-pixel expert routes have reachable transitions and do not rep
    assert.ok(success,`expert zone ${branch.from.zone} transition ${i}`);
   }
  }
+});
+
+test('switchbacks offer actual lower recovery landings in each area',()=>{
+ const route=map();let example;
+ for(let zone=0;zone<9;zone++){
+  const upper=route.find(q=>q.zone===zone&&!q.tutorial&&route.some(low=>low.zone===zone&&low.y>q.y&&low.x<q.x+q.w/2&&low.x+low.w>q.x+q.w/2));
+  assert.ok(upper,`zone ${zone} needs overlapping landings`);example=upper;
+ }
+ const p=player(example);p.x=example.x+example.w/2-p.w/2;p.y=example.y+4;p.grounded=false;
+ for(let i=0;i<240&&!p.grounded;i++)step(p,{axis:0,jump:false},1/120,route);
+ assert.ok(p.grounded);assert.ok(p.y+p.h>example.y);assert.ok(p.y<560);
 });

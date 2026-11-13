@@ -1,5 +1,5 @@
-import {map,player,step,ZONES,movePlatforms,zoneAt,zoneStart,WORLD,fellOut,respawn,expertRoutes} from './physics.js';
-import {drawBackground,drawPlatform,drawTutorial,drawOverview} from './art.js';
+import {map,player,step,ZONES,movePlatforms,zoneAt,zoneStart,WORLD,fellOut,respawn,expertRoutes,updateTraps,available} from './physics.js';
+import {drawBackground,drawPlatform,drawTutorial,drawOverview,artReady} from './art.js';
 const $=id=>document.getElementById(id), canvas=$('game'),ctx=canvas.getContext('2d'),mainRoute=map();
 const platforms=[...mainRoute,...expertRoutes(mainRoute).flatMap(r=>r.supports)].sort((a,b)=>b.y-a.y);
 const W=canvas.width,H=canvas.height;
@@ -9,7 +9,7 @@ const items=['Banana Peel','Bomb','Spring Shoes','Shield','Wings','Grappling Hoo
 const questions=[{prompt:'What is 7 × 8?',options:['54','56','64'],answer:1},{prompt:'Which word is a noun?',options:['Mountain','Quickly','Jumping'],answer:0},{prompt:'Which planet is closest to the Sun?',options:['Earth','Venus','Mercury'],answer:2}];
 const boxes=Array.from({length:18},(_,i)=>({zone:Math.floor(i/2),platform:null,ready:0}));
 function relocate(b){
- const eligible=platforms.filter(q=>q.zone===b.zone&&q.w>=64&&!q.checkpoint&&!q.moving&&!q.tutorial&&!boxes.some(other=>other!==b&&other.platform===q));
+ const eligible=platforms.filter(q=>q.zone===b.zone&&q.w>=64&&!q.crumble&&!q.checkpoint&&!q.moving&&!q.tutorial&&!boxes.some(other=>other!==b&&other.platform===q));
  b.platform=eligible[Math.floor(Math.random()*eligible.length)];
 }
 boxes.forEach(relocate);
@@ -17,13 +17,15 @@ function message(s){$('message').textContent=s;}
 function resetCamera(){camera={x:Math.max(0,Math.min(WORLD.width-W,p.x-W*.4)),y:p.y-H*.65};}
 function clearInput(){keys.clear();jump=false;}
 function restart(q=platforms[0]){
- p=player(q);resetCamera();won=false;item='';falls=0;
+ p=player(q);resetCamera();won=false;item='';falls=0;for(const platform of platforms){platform.collapseIn=null;platform.absentFor=0;platform.drop=0;platform.warned=false;}
  if($('question').open)$('question').close();
  activeBox=null;clearInput();
 }
 ZONES.forEach((z,i)=>$('stage').add(new Option(`${i+1}. ${z}`,i)));
 $('warp').onclick=()=>{const z=Number($('stage').value);restart(zoneStart(platforms,z));message('Test zone: '+ZONES[z]);canvas.focus();};
-$('expert').onclick=()=>{const branches=expertRoutes(mainRoute),branch=branches.find(b=>b.from.zone===Number($('stage').value))||branches[0];$('stage').value=String(branch.from.zone);restart(branch.from);message('Expert route: '+ZONES[branch.from.zone]+'. Follow the gold ◆ footholds; the lower main route can catch a missed landing.');canvas.focus();};
+$('city').onclick=()=>{$('stage').value='0';restart(mainRoute.find(q=>!q.tutorial&&q.zone===0));message('City rooftops: walk across the connected terraces, then climb the switchback.');canvas.focus();};
+$('trap').onclick=()=>{const target=mainRoute.find(q=>q.zone===Number($('stage').value)&&q.crumble);restart(mainRoute[mainRoute.indexOf(target)-1]);message('Cracked platform test: land on ⚠, then move before it collapses in 0.65 seconds.');canvas.focus();};
+$('expert').onclick=()=>{const branches=expertRoutes(mainRoute),branch=branches.find(b=>b.from.zone===Number($('stage').value))||branches[0];$('stage').value=String(branch.from.zone);restart(branch.from);message('Expert route: '+ZONES[branch.from.zone]+'. Gold ◆ footholds have open air below: a missed landing can mean a full fall.');canvas.focus();};
 $('reset').onclick=()=>{restart();message('Practice on the ground, then follow the props into the climb.');canvas.focus();};
 $('respawn').onclick=()=>{if(activeBox)return;boxes.forEach(b=>{relocate(b);b.ready=clock;});message('Boxes moved to safe, stationary ledges.');canvas.focus();};
 function consumeBox(){
@@ -61,8 +63,9 @@ document.querySelectorAll('[data-key]').forEach(b=>{
 });
 function update(dt){
  if($('question').open||won)return;
- clock+=dt;movePlatforms(platforms,clock,p);
+ clock+=dt;const shaking=platforms.filter(q=>q.collapseIn>0);updateTraps(platforms,dt);if(shaking.some(q=>!available(q)))message('The cracked platform broke. It will return in four seconds.');movePlatforms(platforms,clock,p);
  step(p,{axis:(keys.has('ArrowRight')||keys.has('KeyD')?1:0)-(keys.has('ArrowLeft')||keys.has('KeyA')?1:0),jump},dt,platforms);jump=false;
+ const freshTrap=platforms.find(q=>q.collapseIn!=null&&!q.warned);if(freshTrap){freshTrap.warned=true;message('Cracked platform! Keep moving — it is about to collapse.');}
  if(fellOut(p)){
   p=respawn(p);falls++;resetCamera();clearInput();
   message('You fell below the world. Back at your highest checkpoint; height record preserved.');
@@ -93,7 +96,7 @@ function draw(){
   ctx.strokeStyle='#c0e8e155';ctx.setLineDash([4,8]);ctx.beginPath();
   mainRoute.forEach((q,i)=>i?ctx.lineTo(q.x+q.w/2,q.y-5):ctx.moveTo(q.x+q.w/2,q.y-5));ctx.stroke();ctx.setLineDash([]);
  }
- visible.forEach(q=>drawPlatform(ctx,q));
+ visible.forEach(q=>{if(available(q))drawPlatform(ctx,q);else if(q.drop<180){ctx.save();ctx.globalAlpha=Math.max(0,1-q.drop/180);drawPlatform(ctx,{...q,y:q.y+q.drop});ctx.restore();}});
  if(camera.x<1400&&camera.y>-1100)drawTutorial(ctx);
  if($('boxes').checked)boxes.forEach(b=>{
   if(clock<b.ready||b===activeBox||!b.platform)return;
@@ -114,4 +117,4 @@ function frame(t){
  while(dt>0){const d=Math.min(dt,1/120);update(d);dt-=d;}
  draw();requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+artReady.then(()=>{last=performance.now();requestAnimationFrame(frame);});

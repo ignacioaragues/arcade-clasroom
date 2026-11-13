@@ -10,22 +10,23 @@ export function map() {
  const training = [[360,-40,96],[480,-100,80],[620,-224,64],[770,-270,32],[920,-322,80],[1060,-370,160]];
  for (const [i,[x,y,w]] of training.entries()) route.push({x,baseX:x,y,w,zone:0,tutorial:true,double:i===2,moving:i===4,phase:0,checkpoint:i===5,kind:i%4});
  let x=1140, y=-370;
- // Each motif has a different rhythm; the course never folds back on itself.
+ // Overall progress is rightward, with local switchbacks and overlapping recovery ledges.
  const motifs=[
-  {name:'Roof terraces',steps:[[144,28],[176,20],[152,36],[168,24],[132,56],[180,20],[140,48],[152,32]]},
-  {name:'Chimney run',steps:[[112,64],[104,56],[124,72],[108,48],[148,122],[112,48],[128,64],[156,28]]},
-  {name:'Balcony climb',steps:[[96,72],[104,64],[128,124],[112,56],[96,76],[136,120],[112,48],[160,28]]},
+  {name:'Roof terraces',steps:[[180,28,320],[200,0,320],[240,24,240],[120,64,80],[-64,64,64],[120,120,64],[180,32,280],[200,0,360]]},
+  {name:'Chimney run',steps:[[112,64],[96,56],[-80,72],[104,48],[148,122],[-72,48],[128,64],[156,28,240]]},
+  {name:'Balcony climb',steps:[[96,64],[-72,64],[128,124],[-64,56],[96,72],[136,120],[-64,48],[160,28,240]]},
   {name:'Long crossing',steps:[[184,16],[192,12],[160,32],[172,24],[176,116],[188,16],[168,28],[176,20]]},
   {name:'Moving rhythm',steps:[[144,36],[152,32],[128,64],[144,40],[148,120],[136,48],[156,28],[168,24]]}
  ];
  for(let zone=0;zone<ZONES.length;zone++) {
   for(let n=0;n<STEPS_PER_ZONE;n++) {
    const motif=motifs[Math.floor(n/8)],k=n%8;
-   const [distance,rise]=motif.steps[k];
+   const [distance,rise,customWidth]=motif.steps[k];
    const double=rise>85,rest=k===7,checkpoint=n===STEPS_PER_ZONE-1;
    x+=distance;y-=rise;
-   const w=checkpoint?192:rest?128:zone<2?[80,64,80,48][k%4]:[32,64,32,48][k%4];
+   const w=checkpoint?360:customWidth|| (rest?240:zone<2?[80,64,80,48][k%4]:[32,64,32,48][k%4]);
    route.push({x:x-w/2,baseX:x-w/2,y,w,zone,checkpoint,double,pattern:motif.name,
+    crumble:motif.name==='Moving rhythm'&&k===2,
     moving:!rest&&!double&&motif.name==='Moving rhythm'&&k%3===1,phase:n*.7+zone,kind:(Math.floor(n/8)+k)%4,rest});
   }
  }
@@ -36,13 +37,21 @@ export function expertRoutes(route){
  // Optional precision detours above three of the long, low main-route crossings.
  return [3,5,7].map(zone=>{
   const run=route.filter(q=>!q.tutorial&&q.zone===zone),from=run[24],to=run[28];
-  const supports=[65,125,155,175].map((rise,i)=>({
+  const supports=[-100,-80,-20,60].map((rise,i)=>({
    x:from.x+from.w/2+140*(i+1)-5,baseX:from.x+from.w/2+140*(i+1)-5,
    y:from.y-rise,w:10,zone,kind:i%4,expert:true
   }));
   return {from,to,supports};
  });
 }
+export function updateTraps(platforms,dt){
+ for(const q of platforms){
+  if(!q.crumble)continue;
+  if(q.collapseIn!=null){q.collapseIn-=dt;if(q.collapseIn<=0){q.collapseIn=null;q.absentFor=4;q.drop=0;}}
+  else if(q.absentFor>0){q.absentFor=Math.max(0,q.absentFor-dt);q.drop=(q.drop||0)+180*dt;if(q.absentFor===0)q.warned=false;}
+ }
+}
+export function available(q){return !(q.absentFor>0);}
 export function zoneStart(platforms,zone) {
  return zone===0?platforms[0]:platforms.find(p=>p.checkpoint&&!p.tutorial&&p.zone===zone-1);
 }
@@ -89,10 +98,11 @@ export function step(p,input,dt,platforms) {
  if(p.vy>=0) {
   let landing=null;
   for(const q of platforms) {
-   if(oldBottom<=q.y+.01&&p.y+p.h>=q.y&&p.x+p.w>q.x&&p.x<q.x+q.w&&(!landing||q.y<landing.y)) landing=q;
+   if(available(q)&&oldBottom<=q.y+.01&&p.y+p.h>=q.y&&p.x+p.w>q.x&&p.x<q.x+q.w&&(!landing||q.y<landing.y)) landing=q;
   }
   if(landing) {
    p.y=landing.y-p.h;p.vy=0;p.grounded=true;p.jumps=0;
+   if(landing.crumble&&landing.collapseIn==null)landing.collapseIn=.65;
    // Landing on an older checkpoint must never erase the highest one reached.
    if(landing.checkpoint&&landing.y<p.checkpoint.y) p.checkpoint=landing;
   }

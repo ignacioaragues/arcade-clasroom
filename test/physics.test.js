@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {map,player,step,ZONES,PHYSICS,movePlatforms,zoneAt,zoneStart,fellOut,respawn,WORLD,STEPS_PER_ZONE} from '../public/physics.js';
+import {map,player,step,ZONES,PHYSICS,movePlatforms,zoneAt,zoneStart,fellOut,respawn,WORLD,STEPS_PER_ZONE,updateTraps,available} from '../public/physics.js';
 function attempt(index,secondJump=null,startTime=0){
  const route=map();movePlatforms(route,startTime);const from=route[index],to=route[index+1],p=player(from);p.x=index===0?to.x+to.w/2-80:from.x+from.w/2-p.w/2;
  for(let t=0;t<260;t++){
@@ -53,4 +53,20 @@ test('practice floor has no left gap and right railing contains street-level mov
  p.x=floor.w-30;p.y=-200;p.grounded=false;p.vy=-100;
  for(let i=0;i<25;i++)step(p,{axis:1,jump:false},1/120,route);
  assert.ok(p.x>floor.w,'climbers can leave above the railing');
+});
+
+test('cracked platforms warn, collapse after landing, stop supporting and return after four seconds',()=>{
+ const q={x:200,y:-100,w:80,crumble:true},floor={x:0,y:0,w:640,checkpoint:true},p=player(floor);p.x=220;p.y=-160;p.grounded=false;
+ for(let i=0;i<120&&!q.collapseIn;i++)step(p,{axis:0,jump:false},1/120,[floor,q]);
+ assert.ok(q.collapseIn>0);assert.equal(p.y+p.h,q.y);
+ updateTraps([q],.3);assert.ok(available(q));
+ updateTraps([q],.36);assert.equal(available(q),false);
+ for(let i=0;i<120;i++)step(p,{axis:0,jump:false},1/120,[floor,q]);
+ assert.equal(p.y+p.h,0);
+ updateTraps([q],4.1);assert.equal(available(q),true);assert.ok(q.collapseIn==null);
+});
+test('long same-height rooftops allow walking without another jump',()=>{
+ const floor={x:0,y:0,w:320,checkpoint:true},next={x:240,y:0,w:320},p=player(floor);p.x=200;
+ for(let i=0;i<140;i++)step(p,{axis:1,jump:false},1/120,[floor,next]);
+ assert.ok(p.x>400);assert.equal(p.y+p.h,0);assert.equal(p.jumps,0);
 });

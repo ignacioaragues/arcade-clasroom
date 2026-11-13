@@ -14,7 +14,20 @@ const themes = [
 ];
 function polygon(ctx,points,color) {ctx.fillStyle=color;ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();}
 function ellipse(ctx,x,y,rx,ry,color){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();}
+const cityImage=typeof Image==='undefined'?null:new Image();
+const citySprites={};
+if(cityImage){cityImage.src=new URL('./assets/city-panorama.png',import.meta.url).href;for(const name of ['roof','chimney','balcony']){const image=new Image();image.src=new URL('./assets/'+name+'.svg',import.meta.url).href;citySprites[name]=image;}}
+export const artReady=cityImage?Promise.all([cityImage,...Object.values(citySprites)].map(image=>image.decode().catch(()=>{}))):Promise.resolve();
+function illustratedCity(ctx,camera,w,h){
+ if(!cityImage?.complete||!cityImage.naturalWidth)return false;
+ const tw=h*cityImage.naturalWidth/cityImage.naturalHeight,offset=camera.x*.16;
+ for(let id=Math.floor(offset/tw)-1;id*tw-offset<w;id++){
+  const x=id*tw-offset;ctx.save();ctx.translate(id%2?x+tw:x,0);if(id%2)ctx.scale(-1,1);ctx.drawImage(cityImage,0,0,tw+1,h);ctx.restore();
+ }
+ return true;
+}
 function scene(ctx,zone,camera,w,h){
+ if(zone===0&&illustratedCity(ctx,camera,w,h))return;
  const [top,bottom]=themes[zone],gradient=ctx.createLinearGradient(0,0,0,h);
  gradient.addColorStop(0,top);gradient.addColorStop(1,bottom);ctx.fillStyle=gradient;ctx.fillRect(0,0,w,h);
  if(zone<7){
@@ -91,13 +104,30 @@ export function drawBackground(ctx,platforms,zone,camera,w,h){
  }
 }
 export function drawPlatform(ctx,q){
+ if(q.crumble){
+  ctx.save();if(q.collapseIn!=null)ctx.translate(Math.sin(q.collapseIn*80)*2,0);
+  drawPlatform(ctx,{...q,crumble:false});
+  ctx.fillStyle='#e8b467';ctx.fillRect(q.x,q.y,q.w,5);
+  ctx.strokeStyle='#4b3434';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(q.x+q.w*.3,q.y+2);ctx.lineTo(q.x+q.w*.45,q.y+9);ctx.lineTo(q.x+q.w*.38,q.y+17);ctx.moveTo(q.x+q.w*.7,q.y+1);ctx.lineTo(q.x+q.w*.6,q.y+11);ctx.stroke();
+  ctx.fillStyle='#ffe1a0';ctx.font='bold 10px system-ui';ctx.fillText('⚠ CRACKED',q.x,q.y-12);ctx.restore();return;
+ }
+ if(q.zone===0&&!q.safeFloor){
+  const name=q.w>=200?'roof':q.kind===1?'balcony':'chimney',image=citySprites[name];
+  if(image?.complete&&image.naturalWidth){
+   const height=name==='roof'?160:name==='balcony'?78:Math.min(100,q.w*2);
+   ctx.drawImage(image,q.x,q.y,q.w,height);
+   ctx.fillStyle=q.checkpoint?'#74edbe':q.moving?'#d2b7ff':'#ffe3af';ctx.fillRect(q.x,q.y,q.w,3);
+   ctx.font='bold 10px system-ui';ctx.fillStyle='#fff0c8';if(q.double)ctx.fillText('↑↑',q.x,q.y-10);if(q.moving)ctx.fillText('↔',q.x,q.y-10);
+   if(q.checkpoint){ctx.fillStyle='#caffdf';ctx.fillText('CHECKPOINT',q.x,q.y-10);ctx.fillRect(q.x+q.w-12,q.y-36,2,36);polygon(ctx,[[q.x+q.w-10,q.y-36],[q.x+q.w+10,q.y-28],[q.x+q.w-10,q.y-20]],'#77e4b3');}return;
+  }
+ }
  const [,,light,dark]=themes[q.zone],{x,y,w}=q;
  const kind=q.kind||0;
  ctx.fillStyle=dark;
  if(q.tutorial&&q.y===0){
-  ctx.fillStyle='#394853';ctx.fillRect(x,y,w,70);ctx.fillStyle='#b6b6a1';ctx.fillRect(x,y,w,9);
+  ctx.fillStyle='#b08369';ctx.fillRect(x,y,w,70);ctx.fillStyle='#f6dcb2';ctx.fillRect(x,y,w,9);ctx.fillStyle='#d1ab86';for(let t=x;t<x+w;t+=48){ctx.fillRect(t,y,2,70);ctx.fillRect(t+24,y+35,2,35);}ctx.fillStyle='#dfbb92';ctx.fillRect(x,y+32,w,2);
   ctx.fillStyle='#6ae3bd';ctx.fillRect(x+w-12,y-64,12,64);ctx.fillStyle='#234f50';ctx.fillRect(x+w-8,y-58,4,55);ctx.fillStyle='#e5f1e8';ctx.font='10px system-ui';ctx.fillText('PRACTICE BOUNDARY · CLIMB ABOVE',x+w-240,y-80);
-  for(let i=x+20;i<x+w;i+=70){ctx.fillStyle='#f0d088';ctx.fillRect(i,y+36,35,4);}return;
+  return;
  }
  switch(q.zone){
  case 0: // Brick, awnings, crates, and rooftop water tanks.
